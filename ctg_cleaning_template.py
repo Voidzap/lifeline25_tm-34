@@ -42,7 +42,6 @@ from sklearn.preprocessing import StandardScaler
 warnings.filterwarnings("ignore", category=UserWarning)
 
 DEFAULT_FEATURES = [
-    # Core CTG features from UCI (order doesn't matter)
     "LB","AC","FM","UC","DL","DS","DP",
     "ASTV","MSTV","ALTV","MLTV",
     "Width","Min","Max","Nmax","Nzeros","Mode","Mean","Median","Variance","Tendency"
@@ -51,7 +50,6 @@ DEFAULT_FEATURES = [
 def load_ctg(path: Path) -> pd.DataFrame:
     path = Path(path)
     if not path.exists():
-        # Try common fallbacks in current dir
         for guess in ["CTG.xls", "CTG.csv", "ctg.csv", "Cardiotocography.csv", "Cardiotocography.xls"]:
             g = Path(guess)
             if g.exists():
@@ -60,7 +58,6 @@ def load_ctg(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Could not find file at {path}. Please pass --file /path/to/CTG.xls or place CTG.xls in this folder.")
     if path.suffix.lower() in [".xls", ".xlsx"]:
-        # The UCI CTG.xls has sheet "Raw Data" or similar; try first sheet by default.
         try:
             df = pd.read_excel(path, sheet_name=0)
         except Exception as e:
@@ -69,12 +66,10 @@ def load_ctg(path: Path) -> pd.DataFrame:
         df = pd.read_csv(path)
     else:
         raise ValueError("Unsupported file type. Use .xls/.xlsx or .csv")
-    # Some distributions include unnamed index columns—drop them
     df = df.loc[:, ~df.columns.astype(str).str.contains("^Unnamed")]
     return df
 
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    # Strip whitespace, unify column casing for robustness
     df = df.copy()
     df.columns = [c.strip() for c in df.columns]
     return df
@@ -82,13 +77,11 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 def choose_target(df: pd.DataFrame, target: str) -> str:
     cols = set(df.columns)
     if target == "AUTO":
-        # Prefer 3-class 'NSP' (Normal=S, Suspect=S, Pathologic=P) if present, else 'CLASS'
         if "NSP" in cols:
             return "NSP"
         elif "CLASS" in cols:
             return "CLASS"
         else:
-            # Some variants store it as "CLASS" or "Nsp" etc.
             guess = [c for c in df.columns if c.upper() in {"NSP","CLASS"}]
             if guess:
                 return guess[0]
@@ -103,10 +96,10 @@ def basic_checks(df: pd.DataFrame):
     print(df.shape)
     print(df.dtypes.value_counts())
     print("\nHead:\n", df.head(3))
-    # Duplicates
+
     dup = df.duplicated().sum()
     print(f"\nDuplicate rows: {dup}")
-    # Missing check
+
     miss = df.isna().sum().sort_values(ascending=False)
     if miss.any():
         print("\nMissing values (non-zero):")
@@ -115,16 +108,13 @@ def basic_checks(df: pd.DataFrame):
         print("\nNo missing values detected (nice!).")
 
 def get_features(df: pd.DataFrame) -> list:
-    # Use DEFAULT_FEATURES if present; otherwise fall back to all numeric except target
     present = [f for f in DEFAULT_FEATURES if f in df.columns]
     return present
 
 def encode_labels(y: pd.Series) -> pd.Series:
-    # For NSP: values are typically 1=Normal, 2=Suspect, 3=Pathologic
-    # Map to 0/1/2 for ML convenience
     unique = sorted(y.dropna().unique().tolist())
     mapping = {}
-    # If labels already 1/2/3 map to 0/1/2; otherwise factorize
+
     if set(unique) == set([1,2,3]):
         mapping = {1:0, 2:1, 3:2}
         print("NSP mapping: 1->0 (Normal), 2->1 (Suspect), 3->2 (Pathologic)")
@@ -160,11 +150,10 @@ def histograms(df_num: pd.DataFrame, out_dir: Path):
         plt.close(fig)
 
 def scatter_matrix_subset(df_num: pd.DataFrame, out_path: Path, max_cols: int = 6):
-    # Avoid huge grids; pick up to 6 columns (top variance)
     variances = df_num.var().sort_values(ascending=False)
     cols = variances.index[:max_cols].tolist()
     sm = scatter_matrix(df_num[cols], figsize=(10,10), diagonal='hist')
-    # Set titles for diagonals
+
     for i, c in enumerate(cols):
         sm[i][i].set_title(c)
     plt.suptitle("Scatter matrix (top-variance features)")
@@ -191,10 +180,10 @@ def main():
 
     target = choose_target(df_raw, args.target)
     print(f"\nUsing target: {target}")
-    # Pick features
+
     features = get_features(df_raw)
     if len(features) == 0:
-        # fallback to all numeric except target
+
         features = df_raw.select_dtypes(include=[np.number]).columns.tolist()
         if target in features:
             features.remove(target)
@@ -202,41 +191,34 @@ def main():
     else:
         print(f"Using default feature set. Count: {len(features)}")
 
-    # Keep only features + target; drop rows with missing in these (shouldn't happen usually)
     cols_needed = features + [target]
     df = df_raw[cols_needed].dropna().copy()
 
-    # Encode labels to 0..K-1
     y = encode_labels(df[target])
     X = df[features].astype(float)
 
-    # Quick class balance
     print("\nClass balance:")
     print(y.value_counts(normalize=False).sort_index())
 
-    # Save full cleaned dataset
     cleaned_full = pd.concat([X, y.rename("label")], axis=1)
     cleaned_full_path = outdir / "cleaned_full.csv"
     cleaned_full.to_csv(cleaned_full_path, index=False)
     print(f"\nSaved cleaned_full.csv -> {cleaned_full_path}")
 
-    # Train/val/test split (stratified)
     X_temp, X_test, y_temp, y_test = train_test_split(
         X, y, test_size=args.test_size, random_state=args.random_state, stratify=y
     )
-    # Normalize val split proportion relative to remaining
+
     val_ratio = args.val_size / (1.0 - args.test_size)
     X_train, X_val, y_train, y_val = train_test_split(
         X_temp, y_temp, test_size=val_ratio, random_state=args.random_state, stratify=y_temp
     )
 
-    # Scaling (fit on train only)
     scaler = StandardScaler()
     X_train_s = scaler.fit_transform(X_train)
     X_val_s = scaler.transform(X_val)
     X_test_s = scaler.transform(X_test)
 
-    # Save splits
     pd.DataFrame(X_train_s, columns=features).assign(label=y_train.values).to_csv(outdir / "ctg_train.csv", index=False)
     pd.DataFrame(X_val_s, columns=features).assign(label=y_val.values).to_csv(outdir / "ctg_val.csv", index=False)
     pd.DataFrame(X_test_s, columns=features).assign(label=y_test.values).to_csv(outdir / "ctg_test.csv", index=False)
@@ -244,9 +226,8 @@ def main():
         pickle.dump(scaler, f)
     print(f"Saved splits & scaler to: {outdir}")
 
-    # Visuals
     print("\nGenerating visuals (matplotlib-only)...")
-    num_df = X  # numeric features before scaling
+    num_df = X 
     hist_dir = outdir / "histograms"
     histograms(num_df, hist_dir)
     print(f"Histograms saved to: {hist_dir}")
