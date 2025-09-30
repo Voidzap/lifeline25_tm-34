@@ -44,6 +44,6 @@ df = pd.concat([X, y], axis=1)
 
 # Feature Differences
 plt.figure(figsize=(10,6))
-sns.boxplot(x="NSP", y="CLASS", data=df, palette="Set2")
+sns.boxplot(x="NSP", y="LB", data=df, palette="Set2")
 plt.title("Baseline FHR by Class")
 plt.show()
