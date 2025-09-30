@@ -265,5 +265,4 @@ def main():
     print(" - Track metrics incl. per-class recall & confusion matrix")
     print(" - Consider class-imbalance strategies (weights/SMOTE)")
 
-if __name__ == "__main__":
-    main()
+main()
