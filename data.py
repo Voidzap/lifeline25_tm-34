@@ -20,8 +20,8 @@ df = pd.concat([X, y], axis=1)
 #print("\nTarget distribution:\n", df['NSP'].value_counts())
 
 # Checking for missing values + info
-#print(df.isnull().sum())
-#print(df.dtypes)
+print(df.isnull().sum())
+print(df.dtypes)
 
 # Descriptive Stats
 #print(df.describe)
@@ -43,7 +43,7 @@ df = pd.concat([X, y], axis=1)
 #plt.show()
 
 # Feature Differences
-plt.figure(figsize=(10,6))
-sns.boxplot(x="NSP", y="LB", data=df, palette="Set2")
-plt.title("Baseline FHR by Class")
-plt.show()
+#plt.figure(figsize=(10,6))
+#sns.boxplot(x="NSP", y="LB", data=df, palette="Set2")
+#plt.title("Baseline FHR by Class")
+#plt.show()
