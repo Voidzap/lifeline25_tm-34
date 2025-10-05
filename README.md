@@ -1,6 +1,6 @@
 Team ID: TM-34
 
-Members:
-Chow Wei Cong
-Chua Yam Heng
+Members:<br>
+Chow Wei Cong<br>
+Chua Yam Heng<br>
 Chu Yi Xin
