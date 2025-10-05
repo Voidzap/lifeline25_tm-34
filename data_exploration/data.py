@@ -2,7 +2,9 @@ from ucimlrepo import fetch_ucirepo
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-  
+
+ #comment and uncomment certain lines to use them
+
 cardiotocography = fetch_ucirepo(id=193) 
   
 X = cardiotocography.data.features 
