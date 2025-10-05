@@ -5,6 +5,7 @@ import pandas as pd
 import time
 import collections
 import joblib
+import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
@@ -125,3 +126,22 @@ if __name__ == "__main__":
 
     joblib.dump(gb_pipeline, "gradient_boosting_ctg_model.pt")
     print("Model saved as gradient_boosting_ctg_model.pt")
+
+    interpret_dir = Path("misc/interpretability")
+    interpret_dir.mkdir(parents=True, exist_ok=True)
+
+    gb_model = gb_pipeline.named_steps['gb'].estimator_
+    feature_importances = pd.DataFrame({
+        'Feature': X_train.columns,
+        'Importance': gb_model.feature_importances_
+    }).sort_values('Importance', ascending=False)
+
+    feature_importances.to_csv(interpret_dir / "feature_importance.csv", index=False)
+    plt.figure(figsize=(8, 6))
+    plt.barh(feature_importances['Feature'][:10], feature_importances['Importance'][:10])
+    plt.gca().invert_yaxis()
+    plt.title("Top 10 Feature Importances (Gradient Boosting)")
+    plt.tight_layout()
+    plt.savefig(interpret_dir / "feature_importance_top10.png", dpi=300)
+    plt.close()
+    print("Feature importance saved to misc/interpretability/")
